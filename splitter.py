@@ -1,5 +1,8 @@
 from posixpath import basename
 import sys, os, json, shutil
+import magic
+from PIL import Image
+from numpy import asarray
 
 def setFileToAvailableDir(maxPartSizeMB, filesizeMb, directories, filePath):
     if filesizeMb > maxPartSizeMB:
@@ -13,6 +16,7 @@ def setFileToAvailableDir(maxPartSizeMB, filesizeMb, directories, filePath):
             setted =True
             break
     if(setted !=True):
+        print(".creado directorio lógico_"+str(len(directories)))
         directories.append(
             {
                 "prefix":"_"+str(len(directories)),
@@ -20,14 +24,29 @@ def setFileToAvailableDir(maxPartSizeMB, filesizeMb, directories, filePath):
             "size":0.0}
         )
         setFileToAvailableDir(maxPartSizeMB, filesizeMb, directories, filePath)
-
-def splitDir(fromDir, toDir, maxPartSizeMB, log):
+def isTransparent(imageArray):
+    if imageArray.sum() ==0:
+        return True
+    else:
+        return False
+def splitDir(fromDir, toDir, maxPartSizeMB, log, skipVoidImages):
+    imagesFileType =['image/png']
     directories =[{"prefix":"_0", "size":0.0, "files":[]}]
+    print('Generando directorios lógicos')
     for root, dirnames, filenames in os.walk(fromDir):            
         for filename in filenames:
-            filesizeMb =((float(os.path.getsize(os.path.join(root, filename)))/1024.0)/1024)
-            setFileToAvailableDir(maxPartSizeMB, filesizeMb, directories, os.path.join(root,filename))
+            filePath =os.path.join(root, filename)
+            if skipVoidImages=='true':
+                filetype =magic.from_file(filePath, mime=True)
+                if filetype in imagesFileType:
+                    image =Image.open(filePath)
+                    imageArray = asarray(image)
+                    if isTransparent(imageArray):
+                        continue
+            filesizeMb =((float(os.path.getsize(filePath))/1024.0)/1024)
+            setFileToAvailableDir(maxPartSizeMB, filesizeMb, directories, filePath)
     mainDir =os.path.basename(fromDir)
+    print('Generando directorios físicos')
     for newDir in directories:
         newDirName =mainDir+newDir['prefix']
         newDirPath =os.path.join(toDir, newDirName)
@@ -38,9 +57,9 @@ def splitDir(fromDir, toDir, maxPartSizeMB, log):
             os.makedirs(os.path.dirname(toPathFilename), exist_ok=True)
             shutil.copy(fromPathFilename, toPathFilename)
         print("..Comprimiendo directorio "+newDirPath)
-        zipFilePath =os.path.join(fromDir,newDirPath)
-        shutil.make_archive(zipFilePath, 'zip', newDirPath)
-        shutil.rmtree(newDirPath)
+        #zipFilePath =os.path.join(fromDir,newDirPath)
+        #shutil.make_archive(zipFilePath, 'zip', newDirPath)
+        #shutil.rmtree(newDirPath)
     if(log =='true'):
         jsonDirectories = json.dumps(directories)
         file =open('packages.json', 'w')
@@ -56,8 +75,9 @@ try:
     toDir   =args[2]
     maxPartSizeMB =float(args[3])
     log =args[4]
+    skipVoidImages =args[5]
     verifyEmptyDir(toDir)
-    splitDir(fromDir, toDir, maxPartSizeMB, log)
+    splitDir(fromDir, toDir, maxPartSizeMB, log, skipVoidImages)
     print('Operacion finalizada con exito')
 except Exception as e:
     print(str(e))
