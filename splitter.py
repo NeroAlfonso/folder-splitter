@@ -57,9 +57,9 @@ def splitDir(fromDir, toDir, maxPartSizeMB, log, skipVoidImages):
             os.makedirs(os.path.dirname(toPathFilename), exist_ok=True)
             shutil.copy(fromPathFilename, toPathFilename)
         print("..Comprimiendo directorio "+newDirPath)
-        #zipFilePath =os.path.join(fromDir,newDirPath)
-        #shutil.make_archive(zipFilePath, 'zip', newDirPath)
-        #shutil.rmtree(newDirPath)
+        zipFilePath =os.path.join(fromDir,newDirPath)
+        shutil.make_archive(zipFilePath, 'zip', newDirPath)
+        shutil.rmtree(newDirPath)
     if(log =='true'):
         jsonDirectories = json.dumps(directories)
         file =open('packages.json', 'w')
